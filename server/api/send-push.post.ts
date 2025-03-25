@@ -68,7 +68,20 @@ export default defineEventHandler(async (event) => {
           statusMessage: `Request error: ${err.message}`
         }))
       })
+    
+      //log the request
+      const requestData = {
+        ':method': 'POST',
+        ':path': `/3/device/${pushToken}`
+      };
+      console.log('Request: ', JSON.stringify(requestData));
+      console.log('authorization: ', `bearer ${token}`);
+      console.log('apns-push-type: ', 'liveactivity');
+      console.log('apns-topic: ', `${bundleId}.push-type.liveactivity`);
+      console.log('apns-priority: ', priority || '5');
+      console.log('payload: ', JSON.stringify(payload));
 
+      
       req.write(JSON.stringify(payload))
       req.end()
     })

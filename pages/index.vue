@@ -59,10 +59,24 @@
                   <!-- Push Token -->
                   <div class="space-y-2">
                     <label class="text-sm font-medium text-gray-700">Push Token*</label>
-                    <input type="text" 
-                      v-model="form.pushToken"
-                      @input="validateField('pushToken')"
-                      :class="['w-full px-3 py-2 border rounded-md', errors.pushToken ? 'border-red-500' : 'border-gray-300']"/>
+                    <div class="relative">
+                      <input type="text" 
+                        v-model="form.pushToken"
+                        @input="validateField('pushToken'); filterTokens()"
+                        @focus="showTokenDropdown = true"
+                        @blur="setTimeout(() => { showTokenDropdown = false }, 200)"
+                        placeholder="Device push token"
+                        :class="['w-full px-3 py-2 border rounded-md', errors.pushToken ? 'border-red-500' : 'border-gray-300']"/>
+                      <div v-if="showTokenDropdown && filteredTokens.length > 0" 
+                        class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base overflow-auto focus:outline-none sm:text-sm">
+                        <div v-for="token in filteredTokens" :key="token.id" 
+                            @mousedown="selectToken(token.token)"
+                            class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-100">
+                          <span class="block truncate text-sm">{{ token.token }}</span>
+                          <span class="block truncate text-xs text-gray-500" v-if="token.device_name">{{ token.device_name }}</span>
+                        </div>
+                      </div>
+                    </div>
                     <p v-if="errors.pushToken" class="mt-1 text-xs text-red-500">{{ errors.pushToken }}</p>
                   </div>
 
@@ -282,9 +296,45 @@ watch(form, () => {
   saveToStorage()
 }, { deep: true })
 
-// Load saved data when component mounts
+const availableTokens = ref([])
+const filteredTokens = ref([])
+const showTokenDropdown = ref(false)
+
+// Function to fetch tokens from the API
+const fetchTokens = async () => {
+  try {
+    const { data } = await useFetch('/api/get-tokens')
+    if (data.value?.success && data.value?.tokens) {
+      availableTokens.value = data.value.tokens
+      filteredTokens.value = [...availableTokens.value]
+    }
+  } catch (error) {
+    console.error('Error fetching tokens:', error)
+  }
+}
+
+// Filter tokens based on user input
+const filterTokens = () => {
+  if (!form.value.pushToken) {
+    filteredTokens.value = [...availableTokens.value]
+  } else {
+    filteredTokens.value = availableTokens.value.filter(
+      token => token.token.toLowerCase().includes(form.value.pushToken.toLowerCase())
+    )
+  }
+}
+
+// Select a token from the dropdown
+const selectToken = (token) => {
+  form.value.pushToken = token
+  validateField('pushToken')
+  showTokenDropdown.value = false
+}
+
+// Load saved data and fetch tokens when component mounts
 onMounted(() => {
   loadFromStorage()
+  fetchTokens()
 })
 
 const handleSubmit = async () => {
@@ -318,6 +368,9 @@ const handleSubmit = async () => {
         priority: parseInt(form.value.priority)
       }
     })
+
+    //log response
+    console.log("response", response)
 
     if (response.value?.error) {
       throw new Error(response.value.error)

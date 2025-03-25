@@ -8,5 +8,22 @@ export default defineNuxtConfig({
     plugins: [
       tailwindcss(),
     ],
+  },
+  devServer: {
+    host: '0.0.0.0',
+    port: 3000,
+  },
+  nitro: {
+    experimental: {
+      database: true
+    },
+    database: {
+      mydb: {
+        connector: 'sqlite',
+        options: {
+          name: 'db'
+        }
+      }
+    }
   }
 })
