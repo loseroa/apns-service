@@ -6,7 +6,22 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
   vite: {
     plugins: [
-      tailwindcss(),
+      tailwindcss(),  
     ],
+  },
+  devServer: {
+    host: '0.0.0.0', // Allow external connections
+    port: 3000, // Default port
+  },
+  nitro: {
+    experimental: {
+      database: true
+    },
+    database: {
+      mydb: {
+        connector: 'sqlite',
+        options: { name: 'db' }
+      }
+    }
   }
 })
