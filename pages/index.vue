@@ -1,396 +1,323 @@
 <template>
-  <div class="min-h-screen bg-gray-100 py-6 pb-24 flex flex-col justify-center sm:py-12">
-    <div class="relative py-3 sm:max-w-4xl sm:mx-auto"> <!-- Increased max-width -->
-      <div class="relative px-4 py-10 bg-white mx-8 md:mx-0 shadow rounded-3xl sm:p-10">
-        <div class="max-w-3xl mx-auto"> <!-- Increased max-width -->
-          <div class="divide-y divide-gray-200">
-            <div class="py-8 text-base leading-6 space-y-4 text-gray-700 sm:text-lg sm:leading-7">
-              <h2 class="text-2xl font-bold mb-8">Live Activity Push Notification</h2>
-              
-              <form @submit.prevent="handleSubmit" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Left Column -->
-                <div class="space-y-6">
-                  <!-- Authentication Certificate -->
-                  <div class="space-y-2">
-                    <label class="text-sm font-medium text-gray-700">Authentication Key (.p8)*</label>
-                    <input type="file" 
-                      accept=".p8"
-                      @change="handleFileUpload"
-                      :class="['w-full px-3 py-2 border rounded-md', errors.p8File ? 'border-red-500' : 'border-gray-300']"/>
-                    <p v-if="errors.p8File" class="mt-1 text-xs text-red-500">{{ errors.p8File }}</p>
-                  </div>
+  <div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+      <!-- Header -->
+      <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">Device Tokens</h1>
+        <div class="flex space-x-3">
+          <button
+            @click="openCreateModal"
+            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Create Token
+          </button>
+          <button
+            @click="refreshTokens"
+            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+        </div>
+      </div>
 
-                  <!-- Team ID -->
-                  <div class="space-y-2">
-                    <label class="text-sm font-medium text-gray-700">Team ID*</label>
-                    <input type="text" 
-                      v-model="form.teamId" 
-                      @input="validateField('teamId')"
-                      placeholder="ABCDE12345"
-                      :class="['w-full px-3 py-2 border rounded-md', errors.teamId ? 'border-red-500' : 'border-gray-300']"/>
-                    <p v-if="errors.teamId" class="mt-1 text-xs text-red-500">{{ errors.teamId }}</p>
-                  </div>
+      <!-- Loading State -->
+      <div v-if="pending" class="flex justify-center py-12">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+      </div>
 
-                  <!-- Key ID -->
-                  <div class="space-y-2">
-                    <label class="text-sm font-medium text-gray-700">Key ID*</label>
-                    <input type="text" 
-                      v-model="form.keyId" 
-                      @input="validateField('keyId')"
-                      placeholder="ABC1234567"
-                      :class="['w-full px-3 py-2 border rounded-md', errors.keyId ? 'border-red-500' : 'border-gray-300']"/>
-                    <p v-if="errors.keyId" class="mt-1 text-xs text-red-500">{{ errors.keyId }}</p>
-                  </div>
-
-                  <!-- Bundle ID -->
-                  <div class="space-y-2">
-                    <label class="text-sm font-medium text-gray-700">Bundle ID*</label>
-                    <input type="text" 
-                      v-model="form.bundleId" 
-                      @input="validateField('bundleId')"
-                      placeholder="com.example.app"
-                      :class="['w-full px-3 py-2 border rounded-md', errors.bundleId ? 'border-red-500' : 'border-gray-300']"/>
-                    <p v-if="errors.bundleId" class="mt-1 text-xs text-red-500">{{ errors.bundleId }}</p>
-                  </div>
-                </div>
-
-                <!-- Right Column -->
-                <div class="space-y-6">
-                  <!-- Push Token -->
-                  <div class="space-y-2">
-                    <label class="text-sm font-medium text-gray-700">Push Token*</label>
-                    <div class="relative">
-                      <input type="text" 
-                        v-model="form.pushToken"
-                        @input="validateField('pushToken'); filterTokens()"
-                        @focus="showTokenDropdown = true"
-                        @blur="setTimeout(() => { showTokenDropdown = false }, 200)"
-                        placeholder="Device push token"
-                        :class="['w-full px-3 py-2 border rounded-md', errors.pushToken ? 'border-red-500' : 'border-gray-300']"/>
-                      <div v-if="showTokenDropdown && filteredTokens.length > 0" 
-                        class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base overflow-auto focus:outline-none sm:text-sm">
-                        <div v-for="token in filteredTokens" :key="token.id" 
-                            @mousedown="selectToken(token.token)"
-                            class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-100">
-                          <span class="block truncate text-sm">{{ token.token }}</span>
-                          <span class="block truncate text-xs text-gray-500" v-if="token.device_name">{{ token.device_name }}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <p v-if="errors.pushToken" class="mt-1 text-xs text-red-500">{{ errors.pushToken }}</p>
-                  </div>
-
-                  <!-- Priority -->
-                  <div class="space-y-2">
-                    <label class="text-sm font-medium text-gray-700">Priority*</label>
-                    <select v-model="form.priority" 
-                      @change="validateField('priority')"
-                      :class="['w-full px-3 py-2 border rounded-md', errors.priority ? 'border-red-500' : 'border-gray-300']">
-                      <option value="5">Medium (5)</option>
-                      <option value="10">High (10)</option>
-                    </select>
-                    <p v-if="errors.priority" class="mt-1 text-xs text-red-500">{{ errors.priority }}</p>
-                  </div>
-
-                  <!-- Action Type -->
-                  <div class="space-y-2">
-                    <label class="text-sm font-medium text-gray-700">Action Type*</label>
-                    <select v-model="form.actionType" 
-                      @change="validateField('actionType')"
-                      :class="['w-full px-3 py-2 border rounded-md', errors.actionType ? 'border-red-500' : 'border-gray-300']">
-                      <option value="start">Start Activity</option>
-                      <option value="update">Update Activity</option>
-                      <option value="end">End Activity</option>
-                    </select>
-                    <p v-if="errors.actionType" class="mt-1 text-xs text-red-500">{{ errors.actionType }}</p>
-                  </div>
-                </div>
-
-                <!-- Content State - Full Width -->
-                <div class="md:col-span-2 space-y-2">
-                  <label class="text-sm font-medium text-gray-700">Content State (JSON)*</label>
-                  <textarea v-model="form.contentState" 
-                    @input="validateField('contentState')"
-                    rows="10"
-                    placeholder="{&#10;  &quot;status&quot;: &quot;in_progress&quot;,&#10;  &quot;data&quot;: {}&#10;}"
-                    :class="['w-full px-3 py-2 border rounded-md font-mono text-sm', errors.contentState ? 'border-red-500' : 'border-gray-300']">
-                  </textarea>
-                  <p v-if="errors.contentState" class="mt-1 text-xs text-red-500">{{ errors.contentState }}</p>
-                </div>
-
-                <!-- Submit Button - Full Width -->
-                <div class="md:col-span-2">
-                  <div v-if="status.message" :class="['mt-4 p-4 rounded-md mb-2', 
-                    status.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700']">
-                    {{ status.message }}
-                  </div>
-                  <button type="submit"
-                    :class="['w-full px-4 py-2 rounded-md transition-colors', 
-                    'bg-blue-500 hover:bg-blue-600 text-white']">
-                    Send Notification
-                  </button>
-                </div>
-              </form>
-            </div>
+      <!-- Error State -->
+      <div v-else-if="error" class="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+            </svg>
           </div>
+          <div class="ml-3">
+            <p class="text-sm text-red-700">{{ error }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div v-else-if="!data?.tokens || data.tokens.length === 0" class="bg-white shadow overflow-hidden sm:rounded-lg p-12 text-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">No tokens found</h3>
+        <p class="mt-1 text-sm text-gray-500">Get started by registering new device tokens.</p>
+      </div>
+
+      <!-- Tokens Table -->
+      <div v-else class="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+        <div class="max-h-[70vh] overflow-y-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50 sticky top-0 z-10">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User ID</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Token</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">App bundle</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr v-for="(token, index) in data.tokens" :key="index">
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-500">{{ token.userId || 'Not specified' }}</div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="text-sm text-gray-900 max-w-xs truncate hover:text-clip hover:overflow-visible">{{ token.token }}</div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="text-sm text-gray-900 max-w-xs truncate hover:text-clip hover:overflow-visible">{{ token.appBundle }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-500">{{ token.createdAt ? new Date(token.createdAt).toLocaleString() : 'Unknown' }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <div class="flex space-x-3 justify-end">
+                    <!-- Edit button -->
+                    <button @click="editToken(token.token)" class="text-indigo-600 hover:text-indigo-900" title="Edit">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    
+                    <!-- Send notification button -->
+                    <button @click="sendNotification(token.token)" class="text-green-600 hover:text-green-900" title="Send Notification">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                      </svg>
+                    </button>
+                    
+                    <!-- Delete button -->
+                    <button @click="deleteToken(token.token)" class="text-red-600 hover:text-red-900" title="Delete">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Create Token Modal -->
+      <div v-if="showCreateModal" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-medium text-gray-900">Register New Token</h3>
+            <button @click="showCreateModal = false" class="text-gray-400 hover:text-gray-500">
+              <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          <form @submit.prevent="registerToken">
+            <div class="space-y-4">
+              <div>
+                <label for="token" class="block text-sm font-medium text-gray-700">Device Token</label>
+                <textarea 
+                  id="token" 
+                  v-model="newToken.token" 
+                  rows="3"
+                  class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  required
+                ></textarea>
+              </div>
+              
+              <div>
+                <label for="userId" class="block text-sm font-medium text-gray-700">User ID</label>
+                <input 
+                  type="text" 
+                  id="userId" 
+                  v-model="newToken.userId" 
+                  class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label for="appBundle" class="block text-sm font-medium text-gray-700">App Bundle</label>
+                <input 
+                  type="text" 
+                  id="appBundle" 
+                  v-model="newToken.appBundle" 
+                  class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  required
+                />
+              </div>
+            </div>
+            
+            <div class="mt-5 sm:mt-6 flex space-x-3">
+              <button 
+                type="button" 
+                @click="showCreateModal = false" 
+                class="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm"
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit" 
+                class="inline-flex justify-center w-full rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm"
+                :disabled="registering"
+              >
+                {{ registering ? 'Registering...' : 'Register Token' }}
+              </button>
+            </div>
+            
+            <div v-if="registerError" class="mt-3 text-sm text-red-600">
+              {{ registerError }}
+            </div>
+          </form>
+        </div>
+      </div>
+      
+      <!-- Send Notification Modal -->
+      <div v-if="showNotificationModal" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-medium text-gray-900">Send Push Notification</h3>
+            <button @click="showNotificationModal = false" class="text-gray-400 hover:text-gray-500">
+              <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          <SendNotificationForm 
+            :initial-data="{ pushToken: selectedToken }" 
+            @success="handleNotificationSuccess" 
+            @error="handleNotificationError"
+          />
         </div>
       </div>
     </div>
   </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-// Remove jwt import since we'll use the server endpoint
+<script setup lang="ts">
+import SendNotificationForm from '~/components/sendNotificationForm.vue';
 
-const form = ref({
-  p8File: null,
-  teamId: '',
-  keyId: '',
-  bundleId: '',
-  pushToken: '',
-  priority: '5',
-  actionType: 'start',
-  contentState: ''
-})
+interface Token {
+    token: string;
+    userId?: string;
+    appBundle?: string;
+    createdAt: string;
+}
 
-const errors = ref({
-  p8File: '',
-  teamId: '',
-  keyId: '',
-  bundleId: '',
-  pushToken: '',
-  priority: '',
-  actionType: '',
-  contentState: ''
-})
+interface TokensResponse {
+  success: boolean;
+  tokens: Token[];
+  error?: string;
+  message?: string;
+}
 
-const status = ref({ message: '', type: 'success' })
+// Fetch tokens data with built-in loading and error handling
+const { data, pending, error, refresh } = await useFetch<TokensResponse>('/api/get-tokens');
 
-const hasErrors = computed(() => 
-  Object.values(errors.value).some(error => error !== '') ||
-  !form.value.p8File ||
-  !form.value.teamId ||
-  !form.value.keyId ||
-  !form.value.bundleId ||
-  !form.value.pushToken ||
-  !form.value.contentState
-)
+// Create token form state
+const showCreateModal = ref(false);
+const registering = ref(false);
+const registerError = ref('');
+const newToken = ref({
+  token: '',
+  userId: '',
+  appBundle: ''
+});
 
-const validateField = (field) => {
-  errors.value[field] = ''
+// Notification modal state
+const showNotificationModal = ref(false);
+const selectedToken = ref('');
+
+// Function to open the create modal
+const openCreateModal = () => {
+  // Reset form
+  newToken.value = {
+    token: '',
+    userId: '',
+    appBundle: ''
+  };
+  registerError.value = '';
+  showCreateModal.value = true;
+};
+
+// Function to register a new token
+const registerToken = async () => {
+  registering.value = true;
+  registerError.value = '';
   
-  switch (field) {
-    case 'teamId':
-      if (!form.value.teamId) {
-        errors.value.teamId = 'Team ID is required'
-      } else if (!/^[A-Z0-9]{10}$/.test(form.value.teamId)) {
-        errors.value.teamId = 'Team ID must be 10 characters (letters and numbers)'
-      }
-      break
-    
-    case 'keyId':
-      if (!form.value.keyId) {
-        errors.value.keyId = 'Key ID is required'
-      } else if (!/^[A-Z0-9]{10}$/.test(form.value.keyId)) {
-        errors.value.keyId = 'Key ID must be 10 characters (letters and numbers)'
-      }
-      break
-    
-    case 'bundleId':
-      if (!form.value.bundleId) {
-        errors.value.bundleId = 'Bundle ID is required'
-      } else if (!/^[a-zA-Z][a-zA-Z0-9.-]*\.[a-zA-Z0-9.-]+$/.test(form.value.bundleId)) {
-        errors.value.bundleId = 'Invalid bundle ID format'
-      }
-      break
-    
-    case 'pushToken':
-      if (!form.value.pushToken) {
-        errors.value.pushToken = 'Push token is required'
-      } else if (form.value.pushToken.length < 10) {
-        errors.value.pushToken = 'Invalid push token'
-      }
-      break
-    
-    case 'contentState':
-      if (!form.value.contentState) {
-        errors.value.contentState = 'Content state is required'
-      } else {
-        try {
-          JSON.parse(form.value.contentState)
-        } catch (e) {
-          errors.value.contentState = 'Invalid JSON format'
-        }
-      }
-      break
-  }
-}
-
-const handleFileUpload = (event) => {
-  const file = event.target.files[0]
-  errors.value.p8File = ''
-  
-  if (!file) {
-    errors.value.p8File = 'Authentication key is required'
-  } else if (!file.name.endsWith('.p8')) {
-    errors.value.p8File = 'File must be a .p8 certificate'
-  } else {
-    form.value.p8File = file
-  }
-}
-
-const validateAll = () => {
-  validateField('teamId')
-  validateField('keyId')
-  validateField('bundleId')
-  validateField('pushToken')
-  validateField('contentState')
-  if (!form.value.p8File) {
-    errors.value.p8File = 'Authentication key is required'
-  }
-}
-
-const readFileAsText = (file) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result)
-    reader.onerror = reject
-    reader.readAsText(file)
-  })
-}
-
-const STORAGE_KEY = 'apns-form-data'
-
-// Load data from localStorage
-const loadFromStorage = () => {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) {
-      const data = JSON.parse(saved)
-      // Merge saved data with default form values, excluding p8File
-      form.value = {
-        ...form.value,
-        ...data,
-        p8File: null // Always reset file input for security
-      }
-    }
-  } catch (e) {
-    console.error('Error loading saved data:', e)
-  }
-}
-
-// Save data to localStorage
-const saveToStorage = () => {
-  try {
-    const dataToSave = { ...form.value }
-    delete dataToSave.p8File // Don't save file data
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave))
-  } catch (e) {
-    console.error('Error saving data:', e)
-  }
-}
-
-// Watch for form changes
-watch(form, () => {
-  saveToStorage()
-}, { deep: true })
-
-const availableTokens = ref([])
-const filteredTokens = ref([])
-const showTokenDropdown = ref(false)
-
-// Function to fetch tokens from the API
-const fetchTokens = async () => {
-  try {
-    const { data } = await useFetch('/api/get-tokens')
-    if (data.value?.success && data.value?.tokens) {
-      availableTokens.value = data.value.tokens
-      filteredTokens.value = [...availableTokens.value]
-    }
-  } catch (error) {
-    console.error('Error fetching tokens:', error)
-  }
-}
-
-// Filter tokens based on user input
-const filterTokens = () => {
-  if (!form.value.pushToken) {
-    filteredTokens.value = [...availableTokens.value]
-  } else {
-    filteredTokens.value = availableTokens.value.filter(
-      token => token.token.toLowerCase().includes(form.value.pushToken.toLowerCase())
-    )
-  }
-}
-
-// Select a token from the dropdown
-const selectToken = (token) => {
-  form.value.pushToken = token
-  validateField('pushToken')
-  showTokenDropdown.value = false
-}
-
-// Load saved data and fetch tokens when component mounts
-onMounted(() => {
-  loadFromStorage()
-  fetchTokens()
-})
-
-const handleSubmit = async () => {
-  validateAll()
-  
-  if (hasErrors.value) {
-    return
-  }
-
-  status.value = { message: '', type: 'success' }
-
-  try {
-    const p8Content = await readFileAsText(form.value.p8File)
-    
-    // Single API call with all required data
-    const { data: response } = await useFetch('/api/send-push', {
+    const response = await $fetch('/api/register-token', {
       method: 'POST',
       body: {
-        teamId: form.value.teamId,
-        keyId: form.value.keyId,
-        p8Content,
-        pushToken: form.value.pushToken,
-        bundleId: form.value.bundleId,
-        payload: {
-          aps: {
-            "timestamp": Date.now(),
-            "event": form.value.actionType,
-            "content-state": JSON.parse(form.value.contentState)
-          }
-        },
-        priority: parseInt(form.value.priority)
+        token: newToken.value.token,
+        userId: newToken.value.userId,
+        appBundle: newToken.value.appBundle
       }
-    })
-
-    //log response
-    console.log("response", response)
-
-    if (response.value?.error) {
-      throw new Error(response.value.error)
-    }
-
-    status.value = {
-      message: 'Push notification sent successfully!',
-      type: 'success'
-    }
+    });
     
-    // Only clear the file input after successful submission
-    form.value.p8File = null
-    saveToStorage()
-    
-  } catch (error) {
-    console.error('Error:', error)
-    status.value = {
-      message: error.message || 'Failed to send push notification',
-      type: 'error'
-    }
+    // Close modal and refresh the list
+    showCreateModal.value = false;
+    refresh();
+  } catch (err: any) {
+    registerError.value = err.message || 'Failed to register token. Please try again.';
+  } finally {
+    registering.value = false;
   }
-}
+};
+
+// Function to refresh the tokens list
+const refreshTokens = () => {
+  refresh();
+};
+
+// Function to delete a token
+const deleteToken = (id: string) => {
+    console.log(`Delete token with ID: ${id}`); 
+    // Use $fetch with DELETE method
+    $fetch(`/api/delete-token/${id}`, {
+      method: 'DELETE'
+    })
+    .then(data => {
+        console.log(data);
+        refresh();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+};
+
+// Function to edit a token
+const editToken = (id: string) => {
+  console.log(`Edit token with ID: ${id}`);
+  // Implement token editing functionality
+};
+
+// Function to send a notification
+const sendNotification = (token: string) => {
+  selectedToken.value = token;
+  showNotificationModal.value = true;
+};
+
+// Handle notification success and errors
+const handleNotificationSuccess = (response: any) => {
+  showNotificationModal.value = false;
+  // You could add a toast notification or other feedback here
+};
+
+const handleNotificationError = (error: any) => {
+  // The error is handled in the component, but you could add additional handling here
+  console.error('Notification error:', error);
+};
 </script>
